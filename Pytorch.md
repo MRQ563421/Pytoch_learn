@@ -515,4 +515,124 @@ writer.close()
 
 ```
 
-s
+
+
+# 神经网络
+
+## 基本骨架nn.Module
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230420205011573.png" alt="image-20230420205011573" style="zoom: 80%;" />
+
+定义每次调用时执行的计算。
+应该被所有子类覆盖。
+
+```python
+import torch
+from torch import nn
+
+class my_module(nn.Module):
+    # 可以由generate 直接生成
+    def __init__(self) -> None:
+        super().__init__() # 这一条语句必须包含在自己的module里面
+
+    # 前向传播，定义每次调用时执行的计算。
+    # 应该被所有子类覆盖。
+    #Although the recipe for forward pass needs to be defined within this function,
+    # one should call the Module instance afterwards instead of this
+    # since the former takes care of running the registered hooks while the latter silently ignores them.
+    # 尽管前向传递的配方需要在这个函数中定义，
+    # 但应该在之后调用Module实例，而不是这样，
+    # 因为前者负责运行注册的钩子，而后者则默默地忽略它们。
+    def forward(self,input):
+        output = input+1
+        return output
+
+MyModule = my_module()
+# 将x转换成tensor类型
+x= torch.tensor(1.0)
+output = MyModule(x)
+print(output)
+```
+
+## 卷积操作
+
+```python
+import torch
+import torch.nn.functional as F
+
+input = torch.Tensor([[1,2,0,3,1],
+                      [0,1,2,3,1],
+                      [1,2,1,0,0],
+                      [5,2,3,1,1],
+                      [2,1,0,1,1]])
+kernel = torch.Tensor([[1,2,1],
+                       [0,1,2],
+                       [2,1,0]])
+
+print(input.shape) # torch.Size([5, 5])
+print(kernel.shape)# torch.Size([3, 3])
+
+#转换数据类型
+input= torch.reshape(input,(1,1,5,5))
+kernel = torch.reshape(kernel,(1,1,3,3))
+print(input.shape) # torch.Size([1, 1, 5, 5])
+print(kernel.shape) # torch.Size([1, 1, 3, 3])   #第一个是batch Size批量数据多少，第二个数据是通道数，
+												#  第三数据是高，第四个是宽
+
+
+# 二维卷积操作，input、kernel是tensor数据类型，同时是（1,1，*，*）
+# stride 是卷积核的步长  padding是外围拓展多少格
+output = F.conv2d(input,kernel,stride=1)
+print(output)
+
+```
+
+
+
+## 卷积层
+
+```python
+import torchvision
+from torch import nn
+from torch.nn import Conv2d
+from torch.utils.data import DataLoader
+# ./data是当前路径 ../data是父类路径
+test_datasets = torchvision.datasets.CIFAR10("./data",train=False,
+                                             transform=torchvision.transforms.ToTensor()
+                                             ,download=True)
+
+test_loader = DataLoader(test_datasets,batch_size=64,shuffle=False,drop_last=False)
+
+
+
+class MyModule(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        
+        # kernel_size卷积核的大小，里面的值我们不设置，只设置核的大小，训练的时候会动态调整，
+        #而卷积核的数量由软件自动设置，主要是依据out_channels和in_channels的比值确定
+        self.conv2 = Conv2d(in_channels=3,out_channels=6,kernel_size=3,stride=1,padding=0)
+
+    def forward(self,x):
+        x = self.conv2(x)
+        return x
+
+mymodule = MyModule()
+print(mymodule)
+# MyModule(
+#   (conv2): Conv2d(3, 6, kernel_size=(3, 3), stride=(1, 1))
+# )
+
+```
+
+
+
+最后那个，通道是2，大小是3*3，batch size是1
+
+![image-20230420231805022](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230420231805022.png)
+
+
+
+改变batch size    最后那个，通道是1，大小是3*3，batch size是2
+
+![image-20230420231852625](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230420231852625.png)
