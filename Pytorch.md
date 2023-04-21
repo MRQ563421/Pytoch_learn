@@ -591,6 +591,8 @@ print(output)
 
 ## 卷积层
 
+###  Conv2d
+
 ```python
 import torchvision
 from torch import nn
@@ -638,6 +640,8 @@ print(mymodule)
 ![image-20230420231852625](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230420231852625.png)
 
 ## 最大池化层
+
+### MaxPool2d()
 
 ```python
 import torch
@@ -710,6 +714,241 @@ for data in test_dataloader:
     step += 1
 
 writer.close()
+
+```
+
+## 非线性激活
+
+### .ReLU() （大于0 保留，小于0，丢弃）
+
+```python
+import torch
+from torch import nn
+from torch.nn import ReLU
+
+input = torch.Tensor([[1,-1.2],
+                     [-2.0,1]])
+input = torch.reshape(input,shape=(-1,1,2,2))  # 如果这一句被注释掉的话，最后面print(output.shape)是torch.Size([2, 2])
+# 没有被注释掉的话，最后的print(output.shape)是 torch.Size([1, 1, 2, 2])
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+        self.Relu = ReLU(inplace=False)  # inplace=False保留原始数据，否则不保留，会被结果覆盖
+
+    def forward(self,input):
+        output = self.Relu(input)
+
+        return output
+
+mymodule = MyModule()
+output = mymodule(input)
+print(output.shape)
+```
+
+### .Sigmoid()
+
+利用tensorboard做输出
+
+```python
+import torchvision.datasets
+from torch import nn
+from torch.nn import ReLU, Sigmoid
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+        self.relu = ReLU(inplace=False)
+        self.sigmoid1 = Sigmoid()
+    def forward(self,input):
+        output = self.sigmoid1(input)
+
+        return output
+
+test_datasets = torchvision.datasets.CIFAR10("./data",train=False,
+                                             transform=torchvision.transforms.ToTensor(),download=True)
+dataloader = DataLoader(dataset=test_datasets,batch_size=5)
+
+mymodule = MyModule()
+
+writer = SummaryWriter("../logs_relu")
+step =0
+for data in dataloader:
+    imgs,labels = data
+    writer.add_images("input",imgs,global_step=step)
+
+    output = mymodule(imgs)
+    writer.add_images("output",img_tensor=output,global_step=step)
+    step +=1
+
+writer.close()
+
+```
+
+## 线性层
+
+将图片展开成一排
+
+```python
+import torch
+import torchvision.datasets
+from torch import nn
+from torch.nn import Linear
+from torch.utils.data import DataLoader
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+        self.linear = Linear(in_features=12288,out_features=20) #输入是12288，输出是20
+
+    def forward(self,input):
+        output = self.linear(input)
+
+        return output
+mymoule = MyModule()
+
+test_datasets = torchvision.datasets.CIFAR10("./data",train=False,transform=torchvision.transforms.ToTensor(),download=True)
+dataloader = DataLoader(dataset=test_datasets,batch_size=4)
+
+
+for data in dataloader:
+    imgs,label = data
+    print(imgs.shape) # torch.Size([4, 3, 32, 32])
+
+    output = torch.reshape(imgs,(1,1,1,-1))
+    print(output.shape) # torch.Size([1, 1, 1, 12288])
+
+
+    #         imgs               ->           output            ->     output
+    # torch.Size([4, 3, 32, 32]) ->torch.Size([1, 1, 1, 12288]) ->torch.Size([1, 1, 1, 20])
+    output= mymoule(output)
+    print(output.shape)
+```
+
+
+
+利用flatten直接展平
+
+```python
+for data in dataloader:
+    imgs,label = data
+    print(imgs.shape) # torch.Size([4, 3, 32, 32])
+
+    output = torch.flatten(imgs)  # torch.Size([12288])
+    print(output.shape)           # flatten 直接展平
+
+    output = mymoule(output)   # torch.Size([20])
+    print(output.shape)
+```
+
+## 搭建小实战-Sequential
+
+**cifar10 model structure**
+
+
+
+![Structure-of-CIFAR10-quick-model](C:\Users\MRQ\Desktop\深度学习\Structure-of-CIFAR10-quick-model.png)
+
+![image-20230421220101941](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230421220101941.png)
+
+
+
+**dilation 是表示是否是空洞卷积，不是的话，dilation是1**
+
+```python
+import torch
+from torch import nn
+from torch.nn import Conv2d, MaxPool2d, Flatten, Linear
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+
+        self.conv1 = Conv2d(in_channels=3,out_channels=32,kernel_size=5,stride=1,padding=2)
+        self.maxpool1 = MaxPool2d(kernel_size=2)
+        self.conv2 = Conv2d(in_channels=32,out_channels=32,kernel_size=5,stride=1,padding=2)
+        self.maxpool2 = MaxPool2d(kernel_size=2)
+        self.conv3 = Conv2d(in_channels=32,out_channels=64,kernel_size=5,stride=1,padding=2)
+        self.maxpool3 = MaxPool2d(kernel_size=2)
+        self.flatten = Flatten()
+        self.linear1 = Linear(in_features=1024,out_features=64)
+        self.linear2 = Linear(in_features=64,out_features=10)
+
+    def forward(self,x):
+        x = self.conv1(x)
+        x= self.maxpool1(x)
+        x = self.conv2(x)
+        x = self.maxpool2(x)
+        x = self.conv3(x)
+        x= self.maxpool3(x)
+        x= self.flatten(x)
+        x= self.linear1(x)
+        x = self.linear2(x)
+
+        return x
+
+mymodule  = MyModule()
+print(mymodule)  
+# MyModule(
+#   (conv1): Conv2d(3, 32, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+#   (maxpool1): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   (conv2): Conv2d(32, 32, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+#   (maxpool2): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   (conv3): Conv2d(32, 64, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+#   (maxpool3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   (flatten): Flatten(start_dim=1, end_dim=-1)
+#   (linear1): Linear(in_features=1024, out_features=64, bias=True)
+#   (linear2): Linear(in_features=64, out_features=10, bias=True)
+# )
+
+input = torch.ones((64,3,32,32))
+output = mymodule(input)
+print(output.shape)  # torch.Size([64, 10])
+```
+
+
+
+### 使用Sequential简化代码
+
+```python
+import torch
+from torch import nn
+from torch.nn import Conv2d, MaxPool2d, Flatten, Linear, Sequential
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+
+        self.sequential = Sequential(
+
+            Conv2d(in_channels=3, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Flatten(),
+            Linear(in_features=1024, out_features=64),
+            Linear(in_features=64, out_features=10),
+        )
+
+    def forward(self,x):
+       x = self.sequential(x)
+       return x
+
+
+mymodule  = MyModule()
+print(mymodule)
+
+input = torch.ones((64,3,32,32))
+output = mymodule(input)
+print(output.shape)  # torch.Size([64, 10])
 
 ```
 
