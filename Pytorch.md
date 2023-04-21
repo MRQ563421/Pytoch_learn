@@ -636,3 +636,80 @@ print(mymodule)
 改变batch size    最后那个，通道是1，大小是3*3，batch size是2
 
 ![image-20230420231852625](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230420231852625.png)
+
+## 最大池化层
+
+```python
+import torch
+from torch import nn
+from torch.nn import MaxPool2d
+
+input = torch.Tensor([[1,2,0,3,1],
+                      [0,1,2,3,1],
+                      [1,2,1,0,0],
+                      [5,2,3,1,1],
+                      [2,1,0,1,1]])
+
+print(input.shape)       # torch.Size([5, 5])
+input= torch.reshape(input,(-1,1,5,5))
+print(input.shape) # torch.Size([1, 1, 5, 5])
+
+class my_module(nn.Module):
+    def __init__(self):
+        super(my_module, self).__init__()
+        # ceil_mode=True保留最后 最大池化剩余的取最大值
+        self.max_pooling = MaxPool2d(kernel_size=3,ceil_mode=True)
+
+    def forward(self,input):
+        output = self.max_pooling(input)
+        return output
+
+mymodule = my_module()
+input= mymodule(input)
+print(input) # tensor([[[[2., 3.],
+             # [5., 1.]]]])
+```
+
+
+
+
+
+```python
+import torchvision
+from torch import nn
+from torch.nn import MaxPool2d
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+
+datasets = torchvision.datasets.CIFAR10("./data",train=False,
+                                        transform=torchvision.transforms.ToTensor(),
+                                        download=True)
+test_dataloader  = DataLoader(dataset=datasets,batch_size=64,shuffle=False)
+
+class my_module(nn.Module):
+    def __init__(self):
+        super(my_module, self).__init__()
+        self.maxpool = MaxPool2d(kernel_size=3,ceil_mode=True)
+
+    def forward(self,input):
+        output = self.maxpool(input)
+
+        return output
+
+writer = SummaryWriter("../logs")
+
+myModule = my_module()
+step = 0
+for data in test_dataloader:
+    imgs,label = datas
+    writer.add_images("input",imgs,step)
+
+    # 因为类型是一样的，不会改变通道数所以不用进行类型转换
+    output = myModule(imgs)
+    writer.add_images("output",output,step)
+    step += 1
+
+writer.close()
+
+```
+
