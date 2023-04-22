@@ -952,3 +952,1171 @@ print(output.shape)  # torch.Size([64, 10])
 
 ```
 
+## 损失函数和反向传播
+
+**L1Loss损失函数**
+
+```python
+import torch
+from torch import nn
+input =  torch.Tensor([1,2,3])
+target = torch.Tensor([4,5,6])
+input = torch.reshape(input,(1,1,1,3))
+target = torch.reshape(target,(1,1,1,3))
+
+loss = nn.L1Loss()
+output = loss(input,target)
+print(output)  # tensor(3.)
+
+```
+
+**nn.MSELoss()**
+
+```python
+# 平方差
+mseloss = nn.MSELoss()
+output_mse = mseloss(input,output)
+print(output_mse)  # tensor(1.6667) 
+```
+
+
+
+### 交叉熵
+
+####  nn.CrossEntropyLoss()
+
+![image-20230422101836563](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422101836563.png)
+
+
+
+```python
+x = torch.tensor([0.1,0.2,0.3])
+y = torch.tensor([1])
+x= torch.reshape(x,(1,3))
+# 交叉熵
+loss_cross = nn.CrossEntropyLoss()
+result = loss_cross(x,y)
+print(result)  # tensor(1.1019)
+```
+
+#### 利用神经网络
+
+```python
+import torchvision.datasets
+from torch import nn
+from torch.nn import Conv2d, MaxPool2d, Flatten, Linear, Sequential
+from torch.utils.data import DataLoader
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+
+        self.sequential = Sequential(
+
+            Conv2d(in_channels=3, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Flatten(),
+            Linear(in_features=1024, out_features=64),
+            Linear(in_features=64, out_features=10),
+        )
+
+    def forward(self,x):
+       x = self.sequential(x)
+       return x
+
+
+dataset  =torchvision.datasets.CIFAR10("./data",train=False,transform=torchvision.transforms.ToTensor(),download=True)
+dataloader = DataLoader(dataset,batch_size=2)
+
+cross_loss = nn.CrossEntropyLoss()
+mymodule = MyModule()
+for data in dataloader:
+    imgs,target = data
+    output = mymodule(imgs)
+    
+    # 计算经过神经网路的结果与实际target目标的差别
+    result_loss = cross_loss(output,target)
+    print(result_loss)
+
+```
+
+## 优化器
+
+### 随机梯度下降-torch.optim.SGD
+
+```python
+# lr是学习速率 params=mymodule.parameters()是参数
+optim = torch.optim.SGD(params=mymodule.parameters(),lr=0.01)
+for data in dataloader:
+    imgs,target = data
+    output = mymodule(imgs)
+
+    # 计算经过神经网路的结果与实际target目标的差别
+    result_loss = cross_loss(output,target)
+
+    optim.zero_grad()           # 每次循环开始的时候先将梯度置零，否则每一步的梯度会一直增加
+    result_loss.backward()     # 根据梯度方向传播，以减小梯度 在这一步会计算梯度
+    optim.step()                # 优化器减小梯度
+    print(result_loss)
+```
+
+
+
+```python
+# lr是学习速率 params=mymodule.parameters()是参数
+optim = torch.optim.SGD(params=mymodule.parameters(),lr=0.01)
+
+for epoch in range(20):
+
+    loss = 0    # 计算每一轮循环的损失函数 也就是误差之和
+    for data in dataloader:
+        imgs,target = data
+        output = mymodule(imgs)
+
+        # 计算经过神经网路的结果与实际target目标的差别
+        result_loss = cross_loss(output,target)
+
+        optim.zero_grad()           # 每次循环开始的时候先将梯度置零，否则每一步的梯度会一直增加
+        result_loss.backward()     # 根据梯度方向传播，以减小梯度 在这一步会计算梯度
+        optim.step()                # 优化器减小梯度 调整模型中的参数
+
+        loss = loss + result_loss  # 计算每一轮loss
+    print(loss)
+```
+
+
+
+**完整代码**
+
+```python
+import torch.optim
+import torchvision.datasets
+from torch import nn
+from torch.nn import Conv2d, MaxPool2d, Flatten, Linear, Sequential
+from torch.utils.data import DataLoader
+
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+
+        self.sequential = Sequential(
+
+            Conv2d(in_channels=3, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=32, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=1, padding=2),
+            MaxPool2d(kernel_size=2),
+            Flatten(),
+            Linear(in_features=1024, out_features=64),
+            Linear(in_features=64, out_features=10),
+        )
+
+    def forward(self,x):
+       x = self.sequential(x)
+       return x
+
+
+dataset  =torchvision.datasets.CIFAR10("./data",train=False,transform=torchvision.transforms.ToTensor(),download=True)
+dataloader = DataLoader(dataset,batch_size=2)
+
+cross_loss = nn.CrossEntropyLoss()
+mymodule = MyModule()
+
+# lr是学习速率 params=mymodule.parameters()是参数
+optim = torch.optim.SGD(params=mymodule.parameters(),lr=0.01)
+
+for epoch in range(20):
+
+    loss = 0    # 计算每一轮循环的损失函数 也就是误差之和
+    for data in dataloader:
+        imgs,target = data
+        output = mymodule(imgs)
+
+        # 计算经过神经网路的结果与实际target目标的差别
+        result_loss = cross_loss(output,target)
+
+        optim.zero_grad()           # 每次循环开始的时候先将梯度置零，否则每一步的梯度会一直增加
+        result_loss.backward()     # 根据梯度方向传播，以减小梯度 在这一步会计算梯度
+        optim.step()                # 优化器减小梯度 调整模型中的参数
+
+        loss = loss + result_loss  # 计算每一轮loss
+    print(loss)
+```
+
+# 现有的网络模型的使用和修改
+
+## vgg16网络模型
+
+```python
+# 下载网络模型
+vgg16_true = torchvision.models.vgg16(pretrained=True)      # 预先已经训练好了
+vgg16_false = torchvision.models.vgg16(pretrained=False)  # pretrained = False预先不训练
+
+print(vgg16_true)
+# VGG(
+#   (features): Sequential(
+#     (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (1): ReLU(inplace=True)
+#     (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (3): ReLU(inplace=True)
+#     (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (6): ReLU(inplace=True)
+#     (7): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (8): ReLU(inplace=True)
+#     (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (11): ReLU(inplace=True)
+#     (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (13): ReLU(inplace=True)
+#     (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (15): ReLU(inplace=True)
+#     (16): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (17): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (18): ReLU(inplace=True)
+#     (19): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (20): ReLU(inplace=True)
+#     (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (22): ReLU(inplace=True)
+#     (23): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (24): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (25): ReLU(inplace=True)
+#     (26): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (27): ReLU(inplace=True)
+#     (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (29): ReLU(inplace=True)
+#     (30): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   )
+#   (avgpool): AdaptiveAvgPool2d(output_size=(7, 7))
+#   (classifier): Sequential(
+#     (0): Linear(in_features=25088, out_features=4096, bias=True)
+#     (1): ReLU(inplace=True)
+#     (2): Dropout(p=0.5, inplace=False)
+#     (3): Linear(in_features=4096, out_features=4096, bias=True)
+#     (4): ReLU(inplace=True)
+#     (5): Dropout(p=0.5, inplace=False)
+#     (6): Linear(in_features=4096, out_features=1000, bias=True)
+#   )
+# )
+print(vgg16_false)
+# VGG(
+#   (features): Sequential(
+#     (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (1): ReLU(inplace=True)
+#     (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (3): ReLU(inplace=True)
+#     (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (6): ReLU(inplace=True)
+#     (7): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (8): ReLU(inplace=True)
+#     (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (11): ReLU(inplace=True)
+#     (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (13): ReLU(inplace=True)
+#     (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (15): ReLU(inplace=True)
+#     (16): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (17): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (18): ReLU(inplace=True)
+#     (19): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (20): ReLU(inplace=True)
+#     (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (22): ReLU(inplace=True)
+#     (23): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (24): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (25): ReLU(inplace=True)
+#     (26): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (27): ReLU(inplace=True)
+#     (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (29): ReLU(inplace=True)
+#     (30): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   )
+#   (avgpool): AdaptiveAvgPool2d(output_size=(7, 7))
+#   (classifier): Sequential(
+#     (0): Linear(in_features=25088, out_features=4096, bias=True)
+#     (1): ReLU(inplace=True)
+#     (2): Dropout(p=0.5, inplace=False)
+#     (3): Linear(in_features=4096, out_features=4096, bias=True)
+#     (4): ReLU(inplace=True)
+#     (5): Dropout(p=0.5, inplace=False)
+#     (6): Linear(in_features=4096, out_features=1000, bias=True)
+#   )
+# )
+```
+
+### (classifier): Sequential( 外面增加模型
+
+**vgg16_true.add_module( "add_module1",  nn.Linear(in_features=1000,out_features=10  ))**
+
+```python
+# 在(classifier): Sequential( 外面增加模型
+vgg16_true.add_module("add_module1",nn.Linear(in_features=1000,out_features=10))
+print(vgg16_true)
+# VGG(
+#   (features): Sequential(
+#     (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (1): ReLU(inplace=True)
+#     (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (3): ReLU(inplace=True)
+#     (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (6): ReLU(inplace=True)
+#     (7): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (8): ReLU(inplace=True)
+#     (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (11): ReLU(inplace=True)
+#     (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (13): ReLU(inplace=True)
+#     (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (15): ReLU(inplace=True)
+#     (16): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (17): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (18): ReLU(inplace=True)
+#     (19): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (20): ReLU(inplace=True)
+#     (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (22): ReLU(inplace=True)
+#     (23): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (24): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (25): ReLU(inplace=True)
+#     (26): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (27): ReLU(inplace=True)
+#     (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (29): ReLU(inplace=True)
+#     (30): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   )
+#   (avgpool): AdaptiveAvgPool2d(output_size=(7, 7))
+#   (classifier): Sequential(
+#     (0): Linear(in_features=25088, out_features=4096, bias=True)
+#     (1): ReLU(inplace=True)
+#     (2): Dropout(p=0.5, inplace=False)
+#     (3): Linear(in_features=4096, out_features=4096, bias=True)
+#     (4): ReLU(inplace=True)
+#     (5): Dropout(p=0.5, inplace=False)
+#     (6): Linear(in_features=4096, out_features=1000, bias=True)
+#   )
+#   (add_module1): Linear(in_features=1000, out_features=10, bias=True)
+# )
+
+# 在(classifier): Sequential( 里面增加模型
+```
+
+
+
+###  里面增加模型
+
+**vgg16_true.classifier.add_module(**
+
+```python
+# 在(classifier): Sequential( 里面增加模型
+vgg16_true.classifier.add_module("add_module2",nn.Linear(in_features=1000,out_features=10))
+print(vgg16_true)
+# VGG(
+#   (features): Sequential(
+#     (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (1): ReLU(inplace=True)
+#     (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (3): ReLU(inplace=True)
+#     (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (6): ReLU(inplace=True)
+#     (7): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (8): ReLU(inplace=True)
+#     (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (11): ReLU(inplace=True)
+#     (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (13): ReLU(inplace=True)
+#     (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (15): ReLU(inplace=True)
+#     (16): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (17): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (18): ReLU(inplace=True)
+#     (19): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (20): ReLU(inplace=True)
+#     (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (22): ReLU(inplace=True)
+#     (23): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (24): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (25): ReLU(inplace=True)
+#     (26): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (27): ReLU(inplace=True)
+#     (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (29): ReLU(inplace=True)
+#     (30): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   )
+#   (avgpool): AdaptiveAvgPool2d(output_size=(7, 7))
+#   (classifier): Sequential(
+#     (0): Linear(in_features=25088, out_features=4096, bias=True)
+#     (1): ReLU(inplace=True)
+#     (2): Dropout(p=0.5, inplace=False)
+#     (3): Linear(in_features=4096, out_features=4096, bias=True)
+#     (4): ReLU(inplace=True)
+#     (5): Dropout(p=0.5, inplace=False)
+#     (6): Linear(in_features=4096, out_features=1000, bias=True)
+#     (add_module2): Linear(in_features=1000, out_features=10, bias=True)
+#   )
+#   (add_module1): Linear(in_features=1000, out_features=10, bias=True)
+# )
+
+
+```
+
+### 直接修改模型
+
+**vgg16_false.classifier[6] = nn.Linear(**
+
+```python
+# 直接修改(classifier): Sequential(  里面的模型
+vgg16_false.classifier[6] = nn.Linear(in_features=4096,out_features=10)
+print(vgg16_false)
+# VGG(
+#   (features): Sequential(
+#     (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (1): ReLU(inplace=True)
+#     (2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (3): ReLU(inplace=True)
+#     (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (6): ReLU(inplace=True)
+#     (7): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (8): ReLU(inplace=True)
+#     (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (11): ReLU(inplace=True)
+#     (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (13): ReLU(inplace=True)
+#     (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (15): ReLU(inplace=True)
+#     (16): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (17): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (18): ReLU(inplace=True)
+#     (19): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (20): ReLU(inplace=True)
+#     (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (22): ReLU(inplace=True)
+#     (23): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#     (24): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (25): ReLU(inplace=True)
+#     (26): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (27): ReLU(inplace=True)
+#     (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+#     (29): ReLU(inplace=True)
+#     (30): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+#   )
+#   (avgpool): AdaptiveAvgPool2d(output_size=(7, 7))
+#   (classifier): Sequential(
+#     (0): Linear(in_features=25088, out_features=4096, bias=True)
+#     (1): ReLU(inplace=True)
+#     (2): Dropout(p=0.5, inplace=False)
+#     (3): Linear(in_features=4096, out_features=4096, bias=True)
+#     (4): ReLU(inplace=True)
+#     (5): Dropout(p=0.5, inplace=False)
+#     (6): Linear(in_features=4096, out_features=10, bias=True)
+#   )
+# )
+```
+
+# 网络模型的保存与读取
+
+## 方式1 
+
+### torch.save
+
+使用官方模型Vgg16
+
+将模型导入
+
+```python
+import torch
+import torchvision.models
+
+vgg16_false = torchvision.models.vgg16(pretrained=False)
+```
+
+```python
+# 方式一：模型结构 + 模型参数
+torch.save(vgg16_false,"vgg16_methon1.pth") # 第一个参数是要保存的网络模型，第二个参数是保存的地址/路径
+```
+
+### torch.load
+
+```python
+# 方式一加载模型
+import torchvision.models
+
+module = torch.load("vgg16_methon1.pth")
+```
+
+
+
+
+
+## 使用自己的模型
+
+### 方式一模型保存
+
+```python
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+        self.conv1 = Conv2d(in_channels=3,out_channels=6,kernel_size=2)
+    
+    def forward(self,input):
+        output = self.conv1(input)
+        
+        return output
+
+mymodule = MyModule()
+torch.save(mymodule,"mymodule.pth")
+```
+
+### 模型加载
+
+
+
+```python
+from torch import nn
+# 要先声明或者先导入才能使用 mymodule = torch.load("mymodule.pth")
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+        self.conv1 = Conv2d(in_channels=3,out_channels=6,kernel_size=2)
+
+    def forward(self,input):
+        output = self.conv1(input)
+
+        return output
+# 这里相对于直接建立网络，少了mymodule = Mymodule()语句
+mymodule = torch.load("mymodule.pth")
+```
+
+```python
+# 也可以这样直接全部导入
+
+from nn_save import *
+mymodule = torch.load("mymodule.pth")
+```
+
+## 方式二
+
+### 模型保存
+
+```python
+import torch
+import torchvision.models
+
+vgg16_false = torchvision.models.vgg16(pretrained=False)
+
+
+# 方式二:只保存模型参数  保存格式是 字典型
+torch.save(vgg16_false.state_dict(),"vgg16_methon2.pth")
+
+```
+
+### 模型加载
+
+```python
+# 方式二加载模型
+# 第一步先新建网络模型
+vgg16 = torchvision.models.vgg16(pretrained=False)
+
+# 第二步加载参数
+parameter = torch.load("vgg16_methon2.pth")
+
+# 网络模型加载参数
+vgg16.load_state_dict(parameter)
+```
+
+# 完整的网络训练套路
+
+## 1-准备数据
+
+```python
+import torchvision.datasets
+
+train_data = torchvision.datasets.CIFAR10("./data",train=True,
+                                          transform=torchvision.transforms.ToTensor(),
+                                          download=True)
+test_data = torchvision.datasets.CIFAR10("./data",train=False,
+                                         transform=torchvision.transforms.ToTensor(),
+                                         download=True)
+```
+
+## 2-加载数据
+
+```python
+# 2- 加载数据
+train_dataloader = DataLoader(train_data,batch_size=64)
+test_dataloader = DataLoader(test_data,batch_size=64)
+```
+
+### 数据的长度
+
+```python
+# 数据的长度
+train_data_size = len(train_data)
+test_data_size = len(test_data)
+print("测试数据集的长度是：{}".format(test_data_size))
+print("训练数据集的长度是：{}".format(train_data_size))
+```
+
+
+
+## 3-创建网络
+
+
+
+![image-20230422170651740](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422170651740.png)
+
+**放在MyModule文件中，使用前要先导包**
+
+```python
+import torch
+from torch import nn
+
+class MyModule(nn.Module):
+    def __init__(self):
+        super(MyModule, self).__init__()
+
+        self.module1 = nn.Sequential(
+            nn.Conv2d(in_channels=3,out_channels=32,kernel_size=5,stride=1,padding=2),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=32,out_channels=32,kernel_size=5,stride=1,padding=2),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=32,out_channels=64,kernel_size=5,stride=1,padding=2),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Flatten(),
+            nn.Linear(in_features=64*4*4,out_features=64),
+            nn.Linear(in_features=64,out_features=10)
+        )
+
+    def forward(self, x):
+        x = self.module1(x)
+
+        return x
+
+# 网络测试
+if __name__ == '__main__':
+    input = torch.ones((64,3,32,32)) # 第一个64 batch_size表示的是图片的数目，第二个是通道，最后两个是H*W，宽×高
+    mymodule = MyModule()
+
+    output = mymodule(input)
+    print(output.shape) # torch.Size([64, 10])
+                        # 返回64代表64行数据，每行10个数据，代表每一张图片在10个类别中的概率
+```
+
+
+
+ 
+
+```python
+# 要保证自己建立的MYMODULE和训练的文件在同一个文件夹，引用
+# 3- 创建网络模型
+from MyModule import *
+mymodule = MyModule()
+```
+
+## 4-损失函数（交叉熵）
+
+```python
+# 4- 损失函数-交叉熵
+loss_fn = nn.CrossEntropyLoss()
+```
+
+
+
+## 5-优化器(设置模型参数和学习速率)
+
+```python
+# 优化器
+learning_rate = 1e-1# 训练速率
+optim = torch.optim.SGD(mymodule.parameters(),learning_rate)
+```
+
+
+
+## 6- 设置训练网络的一些参数
+
+```python
+#记录训练次数
+total_train_step =0
+# 记录测试的次数
+total_test_step = 0
+# 训练的轮数
+epoch = 10
+```
+
+## 7-开始训练
+
+```python
+for i in range(epoch):
+    print("-----第{}轮训练开始-----".format(i))
+
+    # 训练步骤开始
+    for data in train_dataloader:
+        imgs,target = data
+        output = mymodule(imgs) # 经过神经网络获得输出
+
+        # 计算损失函数-交叉熵
+        loss = loss_fn(output,target)	
+
+        # 进行优化
+        optim.zero_grad()  # 优化前要将梯度置零
+        loss.backward()     # 计算梯度，反向传播
+        optim.step()        # 根据梯度进行优化参数
+
+        # 总训练次数加一
+        total_train_step +=1
+        print("训练次数{}，损失{}".format(total_train_step,loss))
+        
+        # 损失函数计算偏差，优化器根据梯度优化模型参数
+```
+
+```python
+-----第0轮训练开始-----
+训练次数1，损失2.300030469894409
+训练次数2，损失2.2911341190338135
+训练次数3，损失2.3091936111450195
+训练次数4，损失2.3224315643310547
+训练次数5，损失2.28849458694458
+```
+
+## 数据类型
+
+```python
+a= torch.tensor(5.)
+print(a)   # tensor(5.)
+print(a.item()) # 5.0
+```
+
+
+
+## 测试集
+
+```python
+# 测试步骤开始， torch.no_grad()将梯度置零
+with torch.no_grad():
+    total_test_loss =0
+    for data in test_dataloader:
+        imgs,target = data
+        output = mymodule(imgs)
+        loss = loss_fn(output,target)
+
+        total_test_loss += loss
+    print("测试集的LOSS：{}".format(total_test_loss))
+```
+
+```python
+
+#总代码（训练过程）
+
+for i in range(epoch):
+    print("-----第{}轮训练开始-----".format(i))
+
+    # 训练步骤开始
+    for data in train_dataloader:
+        imgs,target = data
+        output = mymodule(imgs)
+
+        # 计算损失函数-交叉熵
+        loss = loss_fn(output,target)
+
+        # 进行优化
+        optim.zero_grad()  # 优化前要将梯度置零
+        loss.backward()     # 计算梯度，反向传播
+        optim.step()        # 根据梯度进行优化参数
+
+        # 总训练次数加一
+        total_train_step +=1
+        if total_train_step % 200 == 0:
+            print("训练次数{}，损失{}".format(total_train_step,loss))
+
+    # 测试步骤开始， torch.no_grad()将梯度置零
+    with torch.no_grad():
+        total_test_loss =0
+        for data in test_dataloader:
+            imgs,target = data
+            output = mymodule(imgs)
+            loss = loss_fn(output,target)
+
+            total_test_loss += loss
+        print("测试集的LOSS：{}".format(total_test_loss))
+```
+
+## 准确率
+
+![image-20230422201502181](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422201502181.png)
+
+```python
+import torch
+
+# 如[0.1,0.3]表示第一个输入，其是分类0的概率是0.1，在分类1的概率是0.3
+                    # 在0、1分类中的概率
+input = torch.tensor([[0.1,0.3],
+                    [0.2,0.7]])
+
+
+print(input.argmax(1)) # tensor([1, 1])
+# 1表示横向看，0表示纵向比较 也就是[0.1,0.2]表示是第一个输入，其是分类0的概率是0.1，在分类1的概率是0.2
+
+targets = torch.tensor([0,1]) # 两个输入的目标分类分别是0 和1，也就是两个输入分别属于0、1
+preds = input.argmax(1)  # 根据各个输入在各个分类的概率，找到最大的概率是在哪个分类，输出给preds 各个输入是属于哪个分类
+print((preds == targets).sum()) # 各个分类求和，预测对了为1，没有预测对就是0，将各个分类正确的加和，表示预测正确的个数
+# tensor(1)
+```
+
+## 9-完整的训练套路
+
+```python
+import torch
+import torchvision.datasets
+
+
+# 1- 准备数据
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+
+train_data = torchvision.datasets.CIFAR10("./data",train=True,transform=torchvision.transforms.ToTensor(),download=True)
+test_data = torchvision.datasets.CIFAR10("./data",train=False,transform=torchvision.transforms.ToTensor(),download=True)
+
+# 2- 加载数据
+train_dataloader = DataLoader(train_data,batch_size=64)
+test_dataloader = DataLoader(test_data,batch_size=64)
+
+
+# 数据的长度
+train_data_size = len(train_data)
+test_data_size = len(test_data)
+print("测试数据集的长度是：{}".format(test_data_size))
+print("训练数据集的长度是：{}".format(train_data_size))
+
+# 要保证自己建立的MYMODULE和训练的文件在同一个文件夹，引用
+# 3- 创建网络模型
+from MyModule import *
+mymodule = MyModule()
+
+# 4- 损失函数-交叉熵
+loss_fn = nn.CrossEntropyLoss()
+
+#5- 优化器
+learning_rate = 1e-1# 训练速率
+optim = torch.optim.SGD(mymodule.parameters(),learning_rate)
+
+
+#6- 设置训练网络的一些参数
+
+#记录训练次数
+total_train_step =0
+# 记录测试的次数
+total_test_step = 0
+# 训练的轮数
+epoch = 10
+
+# 7-开始训练
+writer =SummaryWriter("../logs_train")
+for i in range(epoch):
+    print("-----第{}轮训练开始-----".format(i))
+
+    # 训练步骤开始
+    mymodule.train() # 这一步只对部分训练集合有效
+    for data in train_dataloader:
+        imgs,target = data
+        output = mymodule(imgs)
+
+        # 计算损失函数-交叉熵
+        loss = loss_fn(output,target)
+
+        # 进行优化
+        optim.zero_grad()  # 优化前要将梯度置零
+        loss.backward()     # 计算梯度，反向传播
+        optim.step()        # 根据梯度进行优化参数
+
+        # 总训练次数加一
+        total_train_step +=1
+        if total_train_step % 100 == 0:
+            print("训练次数{}，损失{}".format(total_train_step,loss))
+            writer.add_scalar("train_loss",loss.item(),total_train_step)  # 写到tensorboard中
+
+
+    # 测试步骤开始， torch.no_grad()将梯度置零
+    mymodule.eval() # 开启评估
+    with torch.no_grad():
+        total_test_loss =0
+
+        # 正确率
+        total_accuary =0
+        for data in test_dataloader:
+            imgs,target = data
+            output = mymodule(imgs)
+            loss = loss_fn(output,target)
+
+            # 一次测试正确率
+            accuary = (output.argmax(1) == target).sum()
+            total_accuary += accuary
+
+            total_test_loss += loss
+        print("测试集的LOSS：{}".format(total_test_loss))
+
+        print("整体测试集上的正确率{}".format(total_accuary/test_data_size))
+        # 将测试集写入tensorboard中
+        writer.add_scalar("test_loss" ,total_test_loss,total_test_step)
+        writer.add_scalar("test_accuary",total_accuary,total_test_step)
+        total_test_step +=1
+
+        # 保存每次循环的网络模型
+        torch.save(mymodule,"mymodule{}.pth".format(i))
+        print("本次模型已经保存")
+
+writer.close()
+```
+
+# 利用GPU加速
+
+![image-20230422205405507](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422205405507.png)
+
+
+
+主要是图中三个部分进行GPU加速 ，就是在对应的实例对象后面调用conda（）
+
+具体如下：
+
+## 网络模型
+
+```python
+# 3- 创建网络模型
+from MyModule import *
+mymodule = MyModule()
+mymodule = mymodule.cuda()
+```
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422205955175.png" alt="image-20230422205955175" style="zoom:80%;" />
+
+
+
+**优化一下：**
+
+```python
+# 3- 创建网络模型
+from MyModule import *
+mymodule = MyModule()
+if torch.cuda.is_available():
+    mymodule = mymodule.cuda()
+```
+
+
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422210754088.png" alt="image-20230422210754088" style="zoom:80%;" />
+
+
+
+## 损失函数
+
+```python
+# 4- 损失函数-交叉熵
+loss_fn = nn.CrossEntropyLoss()
+loss_fn = loss_fn.cuda()
+```
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422210042583.png" alt="image-20230422210042583" style="zoom:80%;" />
+
+```python
+# 4- 损失函数-交叉熵
+loss_fn = nn.CrossEntropyLoss()
+if torch.cuda.is_available():
+    loss_fn = loss_fn.cuda()
+```
+
+
+
+
+
+## 数据（输入imgs，标注target）
+
+### 训练数据集
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422210249365.png" alt="image-20230422210249365" style="zoom:80%;" />
+
+```python
+# 训练步骤开始
+mymodule.train() # 这一步只对部分训练集合有效
+for data in train_dataloader:
+    imgs,target = data
+    if torch.cuda.is_available():
+        imgs = imgs.coda()
+        target = target.conda()
+```
+
+### 评估数据集
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422211047869.png" alt="image-20230422211047869" style="zoom:80%;" />
+
+
+
+```python
+# 测试步骤开始， torch.no_grad()将梯度置零
+mymodule.eval() # 开启评估
+with torch.no_grad():
+    total_test_loss =0
+
+    # 正确率
+    total_accuary =0
+    for data in test_dataloader:
+        imgs,target = data
+        if torch.cuda.is_available():
+            imgs = imgs.coda()
+            target = target.conda()
+
+        output = mymodule(imgs)
+        loss = loss_fn(output,target)
+```
+
+
+
+# 利用GPU加速（二）
+
+数据、网络模型、损失函数调用 .to(device)         device = torch.device("cpu") 或者 device = torch.device("cuda")  或者 device = torch.device("cuda"   if  torch.cuda.is_available()  else   "cpu"  ) 或者 device = torch.device("cuda : 0")
+
+## 放在最前面
+
+```python
+device = torch.device("cpu")
+```
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422212248204.png" alt="image-20230422212248204" style="zoom:80%;" />
+
+## 网络模型
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422212403474.png" alt="image-20230422212403474" style="zoom:80%;" />
+
+```python
+# 3- 创建网络模型
+from MyModule import *
+mymodule = MyModule()
+# if torch.cuda.is_available():
+#     mymodule = mymodule.cuda()
+mymodule = mymodule.to(device=device)
+```
+
+
+
+## 损失函数
+
+```python
+# 4- 损失函数-交叉熵
+loss_fn = nn.CrossEntropyLoss()
+# if torch.cuda.is_available():
+#     loss_fn = loss_fn.cuda()
+loss_fn = loss_fn.to(device=device)
+```
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422212510415.png" alt="image-20230422212510415" style="zoom:80%;" />
+
+
+
+## 数据
+
+```python
+mymodule.train() # 这一步只对部分训练集合有效
+for data in train_dataloader:
+    imgs,target = data
+    # if torch.cuda.is_available():
+    #     imgs = imgs.coda()
+    #     target = target.conda()
+    imgs = imgs.to(device)  # 这个必需传递给原来的imgs
+    target = target.to(device) # 这个必需传递给原来的 target
+```
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422212659788.png" alt="image-20230422212659788" style="zoom:80%;" />
+
+
+
+
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422212756408.png" alt="image-20230422212756408" style="zoom:80%;" />
+
+```python
+mymodule.eval() # 开启评估
+with torch.no_grad():
+    total_test_loss =0
+
+    # 正确率
+    total_accuary =0
+    for data in test_dataloader:
+        imgs,target = data
+        # if torch.cuda.is_available():
+        #     imgs = imgs.coda()
+        #     target = target.conda()
+        imgs = imgs.to(device)  # 这个必需传递给原来的imgs
+        target = target.to(device)  # 这个必需传递给原来的 target
+```
+
+
+
+
+
+# 完整的模型验证套路
+
+![image-20230422221247548](C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422221247548.png)
+
+
+
+```python
+import torch
+import torchvision
+from PIL import Image
+
+from MyModule import *
+
+# 加载网络模型
+mymodule = torch.load("mymodule0.pth")
+
+# 用来验证的图片加载
+image_path = "D:/pythonProject/module/data/img.png"
+img = Image.open(image_path)
+print(img) # <PIL.PngImagePlugin.PngImageFile image mode=RGB size=902x626 at 0x191A5F58710>
+
+# 这里注意  torchvision.transforms.Resize((32,32)), 有 两 个括号
+trans = torchvision.transforms.Compose([
+    torchvision.transforms.Resize((32,32)),
+    torchvision.transforms.ToTensor()
+])
+
+# 将待验证的图片转换成 神经网络所能够识别的格式tensor数据类型
+img = trans(img)
+print(img.shape)  # tensor数据类型应该用 .shape来查看数据类型，大小
+# torch.Size([3, 32, 32])
+
+img = torch.reshape(img,(-1,3,32,32))
+mymodule.eval()
+with torch.no_grad():
+    # 这里需要一个四维的格式
+    output = mymodule(img)  #  RuntimeError: Expected 4-dimensional input for 4-dimensional weight [32, 3, 5, 5],
+                            # but got 3-dimensional input of size [3, 32, 32] instead
+    print(output)
+# tensor([[-2.0615,  0.3733, -0.2153, -0.3034, -0.0281, -0.1069,  2.3884,  0.3806,
+#          -0.7318,  0.3272]])
+
+# 将上面的每一种概率找到最大值，并返回索引，也就是告诉我们，这个测试的图片是属于哪一类的概率最大
+print(output.argmax(1)) # tensor([6])
+```
+
+## 也就是说，先打开图片，调整一下格式，用神经网络测试获得输出，根据输出找到属于哪一类
+
+
+
+
+
+
+
+<img src="C:\Users\MRQ\AppData\Roaming\Typora\typora-user-images\image-20230422223351462.png" alt="image-20230422223351462" style="zoom:80%;" />
